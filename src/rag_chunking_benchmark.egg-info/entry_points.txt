@@ -1,0 +1,2 @@
+[console_scripts]
+rag-benchmark = rag_chunking.cli:main
