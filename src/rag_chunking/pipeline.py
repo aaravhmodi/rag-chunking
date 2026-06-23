@@ -33,8 +33,13 @@ def run_experiment(
     retriever_backend: str = "lexical",
     embedding_backend: str | None = None,
     llm_judge_backend: str | None = None,
+    chunks: list[Chunk] | None = None,
+    chunking_latency_ms: float | None = None,
 ) -> ExperimentResult:
-    chunks, chunking_latency_ms = chunk_documents(documents, strategy, cache_dir=cache_dir, embedding_backend=embedding_backend)
+    if chunks is None:
+        chunks, chunking_latency_ms = chunk_documents(documents, strategy, cache_dir=cache_dir, embedding_backend=embedding_backend)
+    elif chunking_latency_ms is None:
+        chunking_latency_ms = 0.0
     return evaluate_experiment(
         chunks,
         questions,
@@ -57,8 +62,13 @@ def run_grouped_experiments(
     retriever_backend: str = "lexical",
     embedding_backend: str | None = None,
     llm_judge_backend: str | None = None,
+    chunks: list[Chunk] | None = None,
+    chunking_latency_ms: float | None = None,
 ) -> dict[str, ExperimentResult]:
-    chunks, chunking_latency_ms = chunk_documents(documents, strategy, cache_dir=cache_dir, embedding_backend=embedding_backend)
+    if chunks is None:
+        chunks, chunking_latency_ms = chunk_documents(documents, strategy, cache_dir=cache_dir, embedding_backend=embedding_backend)
+    elif chunking_latency_ms is None:
+        chunking_latency_ms = 0.0
     retriever = build_retriever(chunks, retriever_spec=retriever_backend, embedding_backend=embedding_backend)
     llm_judge = build_llm_judge(llm_judge_backend)
     retrievals = {question.question_id: retriever.retrieve(question.question, top_k=top_k) for question in questions}
@@ -152,6 +162,7 @@ def collect_question_diagnostics(
     retriever_backend: str = "lexical",
     embedding_backend: str | None = None,
     llm_judge_backend: str | None = None,
+    chunking_latency_ms: float | None = None,
 ) -> list[QuestionDiagnostic]:
     retriever = build_retriever(chunks, retriever_spec=retriever_backend, embedding_backend=embedding_backend)
     llm_judge = build_llm_judge(llm_judge_backend)

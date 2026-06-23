@@ -7,6 +7,7 @@ from pathlib import Path
 
 from rag_chunking.loaders import load_documents, load_questions
 from rag_chunking.pipeline import collect_question_diagnostics, run_experiment, run_grouped_experiments, chunk_documents
+from rag_chunking.models import Chunk
 from rag_chunking.reporting import render_markdown_report, write_csv_results, write_diagnostics_csv, write_svg_plots
 from rag_chunking.significance import collect_dataset_metric_vectors, compare_strategies_by_dataset
 
@@ -55,6 +56,10 @@ def main() -> None:
         questions = [question for question in questions if _question_matches_loaded_documents(question, allowed_doc_ids)]
     if args.max_questions is not None:
         questions = questions[: args.max_questions]
+    strategy_chunks: dict[str, tuple[list[Chunk], float]] = {}
+    for strategy in args.strategies:
+        strategy_chunks[strategy] = chunk_documents(documents, strategy, cache_dir=args.cache_dir, embedding_backend=args.embedding_backend)
+
     results = [
         run_experiment(
             documents,
@@ -65,6 +70,8 @@ def main() -> None:
             retriever_backend=args.retriever_backend,
             embedding_backend=args.embedding_backend,
             llm_judge_backend=args.llm_judge_backend,
+            chunks=strategy_chunks[strategy][0],
+            chunking_latency_ms=strategy_chunks[strategy][1],
         )
         for strategy in args.strategies
     ]
@@ -79,13 +86,15 @@ def main() -> None:
             retriever_backend=args.retriever_backend,
             embedding_backend=args.embedding_backend,
             llm_judge_backend=args.llm_judge_backend,
+            chunks=strategy_chunks[strategy][0],
+            chunking_latency_ms=strategy_chunks[strategy][1],
         )
         for strategy in args.strategies
     }
     diagnostics = []
     if args.diagnostics_output or args.report_output:
         for strategy in args.strategies:
-            chunks, _ = chunk_documents(documents, strategy, cache_dir=args.cache_dir, embedding_backend=args.embedding_backend)
+            chunks, chunking_latency_ms = strategy_chunks[strategy]
             diagnostics.extend(
                 collect_question_diagnostics(
                     chunks,
@@ -95,6 +104,7 @@ def main() -> None:
                     retriever_backend=args.retriever_backend,
                     embedding_backend=args.embedding_backend,
                     llm_judge_backend=args.llm_judge_backend,
+                    chunking_latency_ms=chunking_latency_ms,
                 )
             )
     significance = []
