@@ -1,5 +1,17 @@
 # Benchmarking Notes
 
+## Current State
+
+The benchmark now includes:
+
+- lexical, embedding, and hybrid retriever backends behind one interface
+- semantic chunking driven by sentence embeddings
+- optional LLM answer grading and hallucination checks
+- paired significance testing across datasets and metrics
+- JPEG-only article plots plus JPEG table renders for reporting
+
+The original sparse retriever and chunking-only setup is still supported, but it is no longer the only path through the pipeline.
+
 ## What Was Slow
 
 The original lexical retriever compared every query against every chunk.
@@ -82,13 +94,56 @@ Question rows can therefore include:
 - alternative answers
 - evidence spans when available
 
+### Step 7: Add retriever backends
+
+The retriever interface now supports:
+
+- `lexical` for BM25-style sparse ranking
+- `embedding` for semantic ranking through an embedding backend
+- `hybrid` for score fusion between lexical and embedding retrieval
+
+The embedding layer currently defaults to a deterministic hash backend so the project remains runnable offline. Optional sentence-transformers and OpenAI embeddings are supported through the same interface.
+
+### Step 8: Add semantic chunking
+
+The chunker interface now includes a semantic sentence-grouping mode that uses sentence embeddings to decide whether adjacent sentences should stay together.
+
+This gives the article a direct comparison between:
+
+- fixed-size splitting
+- sentence and paragraph grouping
+- adaptive paragraph heuristics
+- semantic grouping driven by embeddings
+
+### Step 9: Add answer grading and hallucination checks
+
+The benchmark can now score retrieved context with either:
+
+- a heuristic local judge
+- an OpenAI-backed judge
+
+The per-question diagnostics now include:
+
+- generated answer
+- answer score
+- hallucination score
+
+These fields are intended for article tables and failure analysis, not as a replacement for human evaluation.
+
+### Step 10: Add significance testing
+
+The pipeline can now compare strategies with paired randomization tests across datasets and metrics.
+
+This is meant to support article claims that go beyond descriptive ranking tables.
+
 ## Recommended Run Order
 
 1. Run a small sanity check on `data/sample`.
 2. Run one benchmark dataset and one split.
-3. Start with `paragraph` and `adaptive`.
-4. Add more aggressive chunking baselines after confirming runtime.
-5. Generate article artifacts only after the scoped run looks reasonable.
+3. Start with `paragraph`, `adaptive`, and `semantic`.
+4. Compare `lexical` against `hybrid` and `embedding` retriever backends.
+5. Enable LLM grading only after the retrieval outputs look sane.
+6. Generate article artifacts only after the scoped run looks reasonable.
 
 ## Example Commands
 
@@ -137,5 +192,7 @@ rag-benchmark `
 - This is still a lightweight in-process sparse retriever rather than a production search engine.
 - The first cached run still pays the initial chunking cost.
 - Full mixed-corpus runs may still be slow when document counts and chunk counts are both large.
+- Embedding and LLM backends depend on optional extras or API access.
+- Significance testing is paired and descriptive; it is not a substitute for a full experimental design.
 
-The next major speed upgrade would be caching or persisting retrieval indexes in addition to chunks.
+The next major speed upgrade would be caching or persisting embedding indexes in addition to chunks.

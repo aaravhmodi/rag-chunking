@@ -230,6 +230,21 @@ def write_svg_plots(
         _save_bar_chart(root / "answer_em.jpg", "Answer Exact Match by Strategy", [r.strategy for r in results], [r.answer_exact_match for r in results], "#2563eb", y_max=1.0),
         charts,
     )
+    if any(result.llm_judged_question_count for result in results):
+        _write_chart(
+            root,
+            "llm_answer_score.jpg",
+            "LLM-judged answer score by strategy",
+            _save_bar_chart(root / "llm_answer_score.jpg", "LLM Answer Score by Strategy", [r.strategy for r in results], [r.llm_answer_score for r in results], "#0f766e", y_max=1.0),
+            charts,
+        )
+        _write_chart(
+            root,
+            "hallucination_rate.jpg",
+            "LLM-judged hallucination rate by strategy",
+            _save_bar_chart(root / "hallucination_rate.jpg", "Hallucination Rate by Strategy", [r.strategy for r in results], [r.hallucination_rate for r in results], "#dc2626", y_max=1.0),
+            charts,
+        )
     _write_chart(
         root,
         "evidence.jpg",

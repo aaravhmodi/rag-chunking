@@ -113,7 +113,6 @@ Detailed pipeline notes live in [docs/benchmarking.md](docs/benchmarking.md).
 
 ## Current gaps
 
-1. Add embedding backends behind the retriever interface.
-2. Add semantic chunking using sentence embeddings.
-3. Add LLM-based answer grading and hallucination checks.
-4. Add significance testing across multiple benchmark datasets.
+1. Persist or cache retrieval embeddings/indexes for larger runs.
+2. Add a broader significance test suite beyond paired randomization.
+3. Add human-reviewed calibration data for the LLM judge.
