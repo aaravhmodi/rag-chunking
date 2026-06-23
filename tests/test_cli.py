@@ -15,6 +15,7 @@ class CliTests(unittest.TestCase):
             root = Path(tmp_dir)
             json_output = root / "results.json"
             csv_output = root / "results.csv"
+            diagnostics_output = root / "diagnostics.csv"
             report_output = root / "report.md"
             plots_dir = root / "plots"
 
@@ -31,6 +32,8 @@ class CliTests(unittest.TestCase):
                 str(json_output),
                 "--csv-output",
                 str(csv_output),
+                "--diagnostics-output",
+                str(diagnostics_output),
                 "--report-output",
                 str(report_output),
                 "--plots-dir",
@@ -45,9 +48,11 @@ class CliTests(unittest.TestCase):
             self.assertIn("fixed-128", payload["grouped"])
             self.assertIn("dataset=sample", payload["grouped"]["fixed-128"])
             self.assertTrue(csv_output.exists())
+            self.assertTrue(diagnostics_output.exists())
             report_text = report_output.read_text(encoding="utf-8")
             self.assertIn("# RAG Chunking Benchmark Report", report_text)
             self.assertIn("## Slice Analysis", report_text)
+            self.assertIn("## Diagnostics", report_text)
             self.assertTrue((plots_dir / "quality.svg").exists())
             self.assertTrue((plots_dir / "latency.svg").exists())
 

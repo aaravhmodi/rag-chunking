@@ -60,3 +60,25 @@ class ExperimentResult:
     avg_chunk_length_chars: float
     chunking_latency_ms: float
     retrieval_latency_ms: float
+
+
+@dataclass(slots=True)
+class QuestionDiagnostic:
+    strategy: str
+    question_id: str
+    question: str
+    dataset: str
+    split: str
+    source_doc: str
+    top_k: int
+    total_retrieved: int
+    top1_doc_id: str
+    top1_score: float
+    top1_relevant: bool
+    first_relevant_rank: int | None
+    relevant_retrieved: bool
+    answer_exact_match: float
+    evidence_question: bool
+    first_evidence_rank: int | None
+    evidence_span_covered: bool
+    failure_mode: str

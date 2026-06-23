@@ -64,6 +64,7 @@ rag-benchmark `
   --questions data/sample/questions.jsonl `
   --strategies fixed-128 fixed-256 paragraph sentence adaptive `
   --cache-dir .cache/chunks `
+  --diagnostics-output results/diagnostics.csv `
   --top-k 5
 ```
 
@@ -100,6 +101,7 @@ rag-benchmark `
 
 - The retriever now uses an inverted index and BM25-style sparse scoring, so it only scores chunks that share tokens with the query.
 - Chunking can be persisted with `--cache-dir` so repeated runs reuse identical strategy outputs for the same document collection.
+- Per-question failure rows can be written with `--diagnostics-output` for error analysis.
 - Full benchmark runs can still be expensive on large corpora because chunking long documents produces many chunk candidates.
 - Recommended workflow:
   1. Start with one dataset and one split.

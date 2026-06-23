@@ -6,8 +6,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 from rag_chunking.loaders import load_documents, load_questions
-from rag_chunking.pipeline import run_experiment, run_grouped_experiments
-from rag_chunking.reporting import render_markdown_report, write_csv_results, write_svg_plots
+from rag_chunking.pipeline import collect_question_diagnostics, run_experiment, run_grouped_experiments, chunk_documents
+from rag_chunking.reporting import render_markdown_report, write_csv_results, write_diagnostics_csv, write_svg_plots
 
 
 def parse_args() -> argparse.Namespace:
@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-documents", type=int, help="Optional cap on the number of loaded documents after filtering.")
     parser.add_argument("--max-questions", type=int, help="Optional cap on the number of loaded questions after filtering.")
     parser.add_argument("--cache-dir", help="Optional directory for persisted chunk caches keyed by strategy and document contents.")
+    parser.add_argument("--diagnostics-output", help="Optional path to write per-question diagnostics as CSV.")
     return parser.parse_args()
 
 
@@ -60,6 +61,11 @@ def main() -> None:
         )
         for strategy in args.strategies
     }
+    diagnostics = []
+    if args.diagnostics_output or args.report_output:
+        for strategy in args.strategies:
+            chunks, _ = chunk_documents(documents, strategy, cache_dir=args.cache_dir)
+            diagnostics.extend(collect_question_diagnostics(chunks, questions, strategy, top_k=args.top_k))
     payload = [asdict(result) for result in results]
     text = json.dumps(payload, indent=2)
     if args.output:
@@ -80,6 +86,8 @@ def main() -> None:
         )
     if args.csv_output:
         write_csv_results(results, args.csv_output)
+    if args.diagnostics_output:
+        write_diagnostics_csv(diagnostics, args.diagnostics_output)
     if args.report_output:
         report = render_markdown_report(
             title=args.title,
@@ -87,12 +95,13 @@ def main() -> None:
             questions=questions,
             results=results,
             grouped_results=grouped_results,
+            diagnostics=diagnostics,
         )
         report_path = Path(args.report_output)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report, encoding="utf-8")
     if args.plots_dir:
-        write_svg_plots(results, args.plots_dir)
+        write_svg_plots(results, args.plots_dir, diagnostics=diagnostics, grouped_results=grouped_results)
     print(text)
 
 

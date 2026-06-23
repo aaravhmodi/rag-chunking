@@ -72,3 +72,21 @@ def evidence_span_recall_at_k(results: list[RetrievalResult], question: Question
         if result.chunk.start_char <= question.evidence_start and result.chunk.end_char >= question.evidence_end:
             return 1.0
     return 0.0
+
+
+def first_relevant_rank(results: list[RetrievalResult], question: QuestionExample) -> int | None:
+    for rank, result in enumerate(results, start=1):
+        if is_relevant(result, question):
+            return rank
+    return None
+
+
+def first_evidence_rank(results: list[RetrievalResult], question: QuestionExample) -> int | None:
+    if not has_evidence_span(question):
+        return None
+    for rank, result in enumerate(results, start=1):
+        if result.chunk.doc_id != question.source_doc:
+            continue
+        if result.chunk.start_char <= question.evidence_start and result.chunk.end_char >= question.evidence_end:
+            return rank
+    return None

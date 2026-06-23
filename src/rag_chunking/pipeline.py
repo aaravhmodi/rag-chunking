@@ -10,13 +10,16 @@ from rag_chunking.chunkers import build_chunks
 from rag_chunking.evaluation import (
     answer_exact_match,
     evidence_span_recall_at_k,
+    first_evidence_rank,
+    first_relevant_rank,
     has_evidence_span,
     is_answerable,
+    is_relevant,
     ndcg_at_k,
     recall_at_k,
     reciprocal_rank,
 )
-from rag_chunking.models import Chunk, Document, ExperimentResult, QuestionExample, RetrievalResult
+from rag_chunking.models import Chunk, Document, ExperimentResult, QuestionDiagnostic, QuestionExample, RetrievalResult
 from rag_chunking.retrieval import LexicalRetriever
 
 
@@ -110,6 +113,52 @@ def evaluate_experiment(
         chunking_latency_ms=chunking_latency_ms,
         top_k=top_k,
     )
+
+
+def collect_question_diagnostics(
+    chunks: list[Chunk],
+    questions: list[QuestionExample],
+    strategy: str,
+    top_k: int,
+) -> list[QuestionDiagnostic]:
+    retriever = LexicalRetriever(chunks)
+    diagnostics: list[QuestionDiagnostic] = []
+    for question in questions:
+        results = retriever.retrieve(question.question, top_k=top_k)
+        top1 = results[0] if results else None
+        relevant_rank = first_relevant_rank(results, question)
+        evidence_rank = first_evidence_rank(results, question)
+        evidence_question = has_evidence_span(question)
+        evidence_covered = evidence_rank is not None
+        relevant_retrieved = relevant_rank is not None
+        answer_match = answer_exact_match(results, question)
+        if evidence_question:
+            failure_mode = "success_evidence" if evidence_covered else "missed_evidence_span" if relevant_retrieved else "missed_relevant"
+        else:
+            failure_mode = "success_relevant" if relevant_retrieved else "missed_relevant"
+        diagnostics.append(
+            QuestionDiagnostic(
+                strategy=strategy,
+                question_id=question.question_id,
+                question=question.question,
+                dataset=str(question.metadata.get("dataset", "")),
+                split=str(question.metadata.get("split", "")),
+                source_doc=question.source_doc,
+                top_k=top_k,
+                total_retrieved=len(results),
+                top1_doc_id=top1.chunk.doc_id if top1 else "",
+                top1_score=top1.score if top1 else 0.0,
+                top1_relevant=is_relevant(top1, question) if top1 else False,
+                first_relevant_rank=relevant_rank,
+                relevant_retrieved=relevant_retrieved,
+                answer_exact_match=answer_match,
+                evidence_question=evidence_question,
+                first_evidence_rank=evidence_rank,
+                evidence_span_covered=evidence_covered,
+                failure_mode=failure_mode,
+            )
+        )
+    return diagnostics
 
 
 def summarize_experiment(

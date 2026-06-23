@@ -39,6 +39,7 @@ The CLI now supports:
 - `--max-documents`
 - `--max-questions`
 - `--cache-dir`
+- `--diagnostics-output`
 
 These flags are intended to make exploratory and article-oriented runs reproducible without launching accidental all-corpus experiments.
 
@@ -53,7 +54,21 @@ Chunking is deterministic for a given:
 When `--cache-dir` is set, the pipeline stores chunk outputs on disk keyed by a content fingerprint of the loaded document collection plus the strategy name.
 Repeated runs with the same filtered document set can therefore skip chunk rebuilding entirely.
 
-### Step 5: Preserve mixed benchmark support
+### Step 5: Add per-question diagnostics
+
+When `--diagnostics-output` is set, the benchmark writes one row per question per strategy with:
+
+- first relevant rank
+- first evidence rank
+- top-1 document ID
+- top-1 relevance flag
+- answer exact match
+- evidence-span coverage
+- coarse failure mode
+
+This is the main artifact for debugging why one chunking strategy wins or loses.
+
+### Step 6: Preserve mixed benchmark support
 
 The benchmark schema supports both:
 
