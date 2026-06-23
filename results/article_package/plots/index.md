@@ -1,0 +1,25 @@
+# Plot Index
+
+- [quality](quality.jpg): Overall Recall@k by Strategy
+- [latency](latency.jpg): Retrieval latency by strategy
+- [mrr](mrr.jpg): MRR comparison by strategy
+- [ndcg](ndcg.jpg): nDCG@k comparison by strategy
+- [answer em](answer_em.jpg): Answer exact match by strategy
+- [evidence](evidence.jpg): Evidence-span recall by strategy
+- [chunking latency](chunking_latency.jpg): Chunking latency by strategy
+- [chunk count](chunk_count.jpg): Average chunk count per document by strategy
+- [chunk length](chunk_length.jpg): Average chunk length by strategy
+- [tradeoff quality latency](tradeoff_quality_latency.jpg): Recall versus retrieval latency tradeoff
+- [tradeoff evidence latency](tradeoff_evidence_latency.jpg): Evidence-span coverage versus retrieval latency tradeoff
+- [tradeoff chunkcount recall](tradeoff_chunkcount_recall.jpg): Recall versus chunk-count tradeoff
+- [failure modes](failure_modes.jpg): Failure-mode composition by strategy
+- [top1 relevance](top1_relevance.jpg): Top-1 relevance rate by strategy
+- [relevant retrieved](relevant_retrieved.jpg): Any relevant chunk retrieved by strategy
+- [evidence coverage](evidence_coverage.jpg): Evidence-span coverage rate by strategy
+- [first relevant rank](first_relevant_rank.jpg): Distribution of first relevant rank by strategy
+- [first evidence rank](first_evidence_rank.jpg): Distribution of first evidence-covering rank by strategy
+- [answer hit rate](answer_hit_rate.jpg): Answer exact-match rate by strategy from per-question diagnostics
+- [missed evidence vs relevant](missed_evidence_vs_relevant.jpg): Missed-evidence and missed-relevant counts side by side
+- [slice recall](slice_recall.jpg): Recall by strategy across dataset and split slices
+- [slice evidence](slice_evidence.jpg): Evidence recall by strategy across dataset and split slices
+- [slice latency](slice_latency.jpg): Retrieval latency across slices

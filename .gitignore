@@ -17,8 +17,6 @@ env/
 data/benchmark/
 data/raw/
 
-# Results - generated outputs
-results/
 
 # IDE
 .vscode/
