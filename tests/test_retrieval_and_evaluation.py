@@ -4,7 +4,7 @@ from tests import _path  # noqa: F401
 
 from rag_chunking.evaluation import answer_exact_match, evidence_span_recall_at_k, ndcg_at_k, recall_at_k, reciprocal_rank
 from rag_chunking.models import Chunk, QuestionExample, RetrievalResult
-from rag_chunking.retrieval import LexicalRetriever
+from rag_chunking.retrieval import LexicalRetriever, build_retriever
 
 
 class RetrievalEvaluationTests(unittest.TestCase):
@@ -76,6 +76,32 @@ class RetrievalEvaluationTests(unittest.TestCase):
         results = [RetrievalResult(chunk=chunks[0], score=1.0), RetrievalResult(chunk=chunks[1], score=0.5)]
 
         self.assertEqual(evidence_span_recall_at_k(results, question), 1.0)
+
+    def test_embedding_retriever_backend_is_available(self) -> None:
+        chunks = [
+            Chunk(
+                chunk_id="doc1:semantic:0",
+                doc_id="doc1",
+                text="The FLQ kidnapped James Cross during the October Crisis.",
+                start_char=0,
+                end_char=58,
+                strategy="semantic",
+            ),
+            Chunk(
+                chunk_id="doc2:semantic:0",
+                doc_id="doc2",
+                text="Tokenization speed depends on implementation details.",
+                start_char=0,
+                end_char=55,
+                strategy="semantic",
+            ),
+        ]
+        retriever = build_retriever(chunks, retriever_spec="embedding", embedding_backend="hash")
+
+        results = retriever.retrieve("Who kidnapped James Cross?", top_k=2)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].backend, "embedding:hash")
 
 
 if __name__ == "__main__":

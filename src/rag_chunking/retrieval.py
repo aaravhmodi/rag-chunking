@@ -34,7 +34,7 @@ class LexicalRetriever:
         total_length = 0
         for chunk in chunks:
             vector = Counter(tokenize(chunk.text))
-            self.chunk_lengths[chunk.chunk_id] = len(vector.elements()) if False else sum(vector.values())
+            self.chunk_lengths[chunk.chunk_id] = sum(vector.values())
             total_length += self.chunk_lengths[chunk.chunk_id]
             for token, frequency in vector.items():
                 self.inverted_index.setdefault(token, []).append((chunk.chunk_id, frequency))

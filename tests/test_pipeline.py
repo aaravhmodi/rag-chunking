@@ -27,6 +27,7 @@ class PipelineTests(unittest.TestCase):
         result = run_experiment(documents, questions, strategy="sentence", top_k=3)
 
         self.assertEqual(result.strategy, "sentence")
+        self.assertEqual(result.retriever, "lexical")
         self.assertEqual(result.top_k, 3)
         self.assertGreaterEqual(result.recall_at_k, 0.0)
         self.assertLessEqual(result.recall_at_k, 1.0)
@@ -35,6 +36,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result.total_question_count, 1)
         self.assertGreater(result.avg_chunk_count, 0.0)
         self.assertGreater(result.avg_chunk_length_chars, 0.0)
+        self.assertEqual(result.llm_judged_question_count, 0)
 
     def test_run_grouped_experiments_slices_by_metadata(self) -> None:
         documents = [

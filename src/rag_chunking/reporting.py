@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from rag_chunking.models import Document, ExperimentResult, QuestionDiagnostic, QuestionExample
+from rag_chunking.models import Document, ExperimentResult, QuestionDiagnostic, QuestionExample, SignificanceComparison
 from rag_chunking.text_utils import tokenize
 
 
@@ -52,6 +52,7 @@ def render_markdown_report(
     results: list[ExperimentResult],
     grouped_results: dict[str, dict[str, ExperimentResult]] | None = None,
     diagnostics: list[QuestionDiagnostic] | None = None,
+    significance: list[SignificanceComparison] | None = None,
 ) -> str:
     total_doc_tokens = sum(len(tokenize(document.text)) for document in documents)
     avg_doc_tokens = total_doc_tokens / len(documents) if documents else 0.0
@@ -73,7 +74,7 @@ def render_markdown_report(
         (
             "This report evaluates how chunking strategy changes retrieval effectiveness and efficiency in a "
             "dependency-light RAG benchmark. Strategies are compared on recall, ranking quality, answer coverage, "
-            "evidence-span coverage, chunk count, chunk length, and retrieval latency."
+            "evidence-span coverage, chunk count, chunk length, retrieval latency, and optional LLM-based answer grading."
         ),
         "",
         "## Dataset",
@@ -88,11 +89,11 @@ def render_markdown_report(
         "## Method",
         "",
         (
-            "Each strategy chunks the same document collection, indexes chunk text with a lexical retriever, and "
+            "Each strategy chunks the same document collection, indexes chunk text with the configured retriever backend, and "
             "retrieves the top-k chunks for each question. Relevance is counted when the correct source document is "
             "retrieved and the chunk contains either the gold evidence string or the answer string. For questions "
             "with annotated character spans, evidence-span recall@k counts whether any retrieved chunk fully covers "
-            "the labeled evidence span."
+            "the labeled evidence span. When enabled, an answer judge also scores correctness and unsupported answer rate."
         ),
         "",
         "## Results",
@@ -112,6 +113,11 @@ def render_markdown_report(
         lines.append(f"- Highest evidence-span recall@k: `{best_evidence.strategy}` at {best_evidence.evidence_span_recall_at_k:.3f}.")
     if fastest:
         lines.append(f"- Lowest retrieval latency: `{fastest.strategy}` at {fastest.retrieval_latency_ms:.3f} ms.")
+    if any(result.llm_judged_question_count for result in results):
+        best_llm = max(results, key=lambda result: result.llm_answer_score)
+        safest_llm = min(results, key=lambda result: result.hallucination_rate)
+        lines.append(f"- Best judged answer score: `{best_llm.strategy}` at {best_llm.llm_answer_score:.3f}.")
+        lines.append(f"- Lowest judged hallucination rate: `{safest_llm.strategy}` at {safest_llm.hallucination_rate:.3f}.")
     if most_compact:
         lines.append(f"- Lowest average chunk count per document: `{most_compact.strategy}` at {most_compact.avg_chunk_count:.2f}.")
     if chunk_counts and chunk_lengths:
@@ -140,15 +146,22 @@ def render_markdown_report(
                 for item in missed_evidence:
                     lines.append(f"  - `{item.question_id}` first relevant rank={item.first_relevant_rank}, first evidence rank={item.first_evidence_rank}, top1 doc=`{item.top1_doc_id}`")
             lines.append("")
+    if significance:
+        lines.extend(["", "## Significance", ""])
+        for item in significance:
+            lines.append(
+                f"- `{item.metric}` on `{item.dataset}`: `{item.candidate_strategy}` vs `{item.baseline_strategy}` "
+                f"delta={item.mean_delta:.3f}, p={item.p_value:.4f}, effect={item.effect_size:.3f}, significant={item.significant}."
+            )
 
     lines.extend(
         [
             "",
             "## Limitations",
             "",
-            "- Retrieval is lexical rather than embedding-based, so semantic recall is under-measured.",
             "- Relevance uses exact string containment for evidence and answers, which is stricter than human judgment.",
-            "- Results are descriptive; this scaffold does not run significance tests.",
+            "- Embedding and LLM backends can change behavior materially depending on the model used.",
+            "- LLM grading is only as reliable as the configured judge and prompt contract.",
             "",
             "## Reproducibility",
             "",
@@ -392,13 +405,13 @@ def write_svg_plots(
 
 def _results_table(results: list[ExperimentResult]) -> str:
     header = (
-        "| Strategy | Recall@k | MRR | nDCG@k | Answer EM | Evidence R@k | Avg chunks/doc | Avg chunk chars | Chunking ms | Retrieval ms |\n"
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        "| Strategy | Retriever | Recall@k | MRR | nDCG@k | Answer EM | LLM Score | Hallucination | Evidence R@k | Avg chunks/doc | Avg chunk chars | Chunking ms | Retrieval ms |\n"
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     )
     rows = [
         (
-            f"| {result.strategy} | {result.recall_at_k:.3f} | {result.mrr:.3f} | {result.ndcg_at_k:.3f} | "
-            f"{_format_answer_metric(result)} | { _format_evidence_metric(result)} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
+            f"| {result.strategy} | {result.retriever} | {result.recall_at_k:.3f} | {result.mrr:.3f} | {result.ndcg_at_k:.3f} | "
+            f"{_format_answer_metric(result)} | {result.llm_answer_score:.3f} | {result.hallucination_rate:.3f} | { _format_evidence_metric(result)} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
             f"{result.chunking_latency_ms:.3f} | {result.retrieval_latency_ms:.3f} |"
         )
         for result in sorted(results, key=lambda item: (item.recall_at_k, item.mrr, -item.retrieval_latency_ms), reverse=True)
