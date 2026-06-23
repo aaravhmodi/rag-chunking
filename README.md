@@ -11,7 +11,7 @@ MVP framework for evaluating how chunking strategy affects retrieval quality, la
   - sliding-window
   - adaptive heuristic
 - Document and QA dataset loaders
-- Lightweight lexical retriever with chunk-level ranking
+- Lightweight sparse lexical retriever with BM25-style chunk ranking
 - Evaluation metrics:
   - Recall@k
   - MRR
@@ -96,7 +96,7 @@ rag-benchmark `
 
 ## Performance Notes
 
-- The retriever now uses an inverted index and only scores chunks that share tokens with the query.
+- The retriever now uses an inverted index and BM25-style sparse scoring, so it only scores chunks that share tokens with the query.
 - Full benchmark runs can still be expensive on large corpora because chunking long documents produces many chunk candidates.
 - Recommended workflow:
   1. Start with one dataset and one split.

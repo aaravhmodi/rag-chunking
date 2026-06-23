@@ -19,15 +19,16 @@ This was acceptable for `data/sample` and impractical for `QASPER` and mixed `BE
 The retriever in `src/rag_chunking/retrieval.py` now builds:
 
 - token frequency vectors per chunk
-- precomputed chunk norms
+- per-chunk token lengths
+- document frequencies
 - an inverted index from token to matching chunk IDs
 
 At query time it only scores chunks that share at least one token with the query.
 
-### Step 2: Keep evaluation semantics stable
+### Step 2: Upgrade the sparse ranking function
 
-The scoring function is still cosine similarity over sparse token counts.
-The optimization changes retrieval efficiency, not the benchmark metric definitions.
+The ranking function is now BM25-style sparse scoring instead of cosine similarity over raw token counts.
+This improves the retrieval baseline itself while keeping the benchmark architecture simple and dependency-light.
 
 ### Step 3: Add safer run controls
 
@@ -105,8 +106,8 @@ rag-benchmark `
 
 ## Remaining Limits
 
-- This is still a simple lexical retriever, not BM25.
+- This is still a lightweight in-process sparse retriever rather than a production search engine.
 - Chunking is recomputed per strategy and per run.
 - Full mixed-corpus runs may still be slow when document counts and chunk counts are both large.
 
-The next major speed upgrade would be chunk caching plus a BM25-style sparse index.
+The next major speed upgrade would be chunk caching across repeated runs.

@@ -38,6 +38,8 @@ class RetrievalEvaluationTests(unittest.TestCase):
         results = LexicalRetriever(chunks).retrieve(question.question, top_k=2)
 
         self.assertEqual(results[0].chunk.doc_id, "doc1")
+        self.assertEqual(len(results), 1)
+        self.assertGreater(results[0].score, 0.0)
         self.assertEqual(recall_at_k(results, question), 1.0)
         self.assertEqual(reciprocal_rank(results, question), 1.0)
         self.assertEqual(ndcg_at_k(results, question), 1.0)
