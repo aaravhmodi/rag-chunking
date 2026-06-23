@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from rag_chunking.embeddings import EmbeddingService, build_embedding_service, cosine_similarity
 from rag_chunking.models import Chunk, Document
 from rag_chunking.text_utils import split_paragraphs, split_sentences, tokenize
 
@@ -231,7 +232,72 @@ def adaptive_chunks(document: Document, default_tokens: int = 512) -> list[Chunk
     return chunks
 
 
-def build_chunks(document: Document, strategy: str) -> list[Chunk]:
+def semantic_chunks(
+    document: Document,
+    embedding_service: EmbeddingService,
+    target_tokens: int = 256,
+    similarity_threshold: float = 0.72,
+) -> list[Chunk]:
+    sentences = split_sentences(document.text)
+    if not sentences:
+        return []
+
+    embeddings = embedding_service.embed_texts(sentences)
+    chunks: list[Chunk] = []
+    current = [sentences[0]]
+    current_tokens = len(tokenize(sentences[0]))
+    char_offset = 0
+
+    for index in range(1, len(sentences)):
+        sentence = sentences[index]
+        sentence_tokens = len(tokenize(sentence))
+        similarity = cosine_similarity(embeddings[index - 1], embeddings[index])
+        should_split = current and (
+            current_tokens + sentence_tokens > target_tokens or similarity < similarity_threshold
+        )
+        if should_split:
+            chunk_text = " ".join(current)
+            start_char, end_char = _char_span(document.text, chunk_text, char_offset)
+            char_offset = max(char_offset, start_char + 1)
+            chunks.append(
+                _make_chunk(
+                    document,
+                    chunk_text,
+                    start_char,
+                    end_char,
+                    "semantic",
+                    len(chunks),
+                    metadata={"embedding_backend": embedding_service.name, "similarity_threshold": similarity_threshold},
+                )
+            )
+            current = [sentence]
+            current_tokens = sentence_tokens
+            continue
+        current.append(sentence)
+        current_tokens += sentence_tokens
+
+    if current:
+        chunk_text = " ".join(current)
+        start_char, end_char = _char_span(document.text, chunk_text, char_offset)
+        chunks.append(
+            _make_chunk(
+                document,
+                chunk_text,
+                start_char,
+                end_char,
+                "semantic",
+                len(chunks),
+                metadata={"embedding_backend": embedding_service.name, "similarity_threshold": similarity_threshold},
+            )
+        )
+    return chunks
+
+
+def build_chunks(
+    document: Document,
+    strategy: str,
+    embedding_backend: str | None = None,
+) -> list[Chunk]:
     if strategy.startswith("fixed-"):
         _, size = strategy.split("-", maxsplit=1)
         return fixed_token_chunks(document, chunk_size=int(size))
@@ -243,4 +309,6 @@ def build_chunks(document: Document, strategy: str) -> list[Chunk]:
         return sliding_window_chunks(document)
     if strategy == "adaptive":
         return adaptive_chunks(document)
+    if strategy == "semantic":
+        return semantic_chunks(document, build_embedding_service(embedding_backend))
     raise ValueError(f"Unsupported strategy: {strategy}")
