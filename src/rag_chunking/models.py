@@ -42,11 +42,13 @@ class Chunk:
 class RetrievalResult:
     chunk: Chunk
     score: float
+    backend: str = ""
 
 
 @dataclass(slots=True)
 class ExperimentResult:
     strategy: str
+    retriever: str
     top_k: int
     recall_at_k: float
     mrr: float
@@ -55,6 +57,9 @@ class ExperimentResult:
     answerable_question_count: int
     evidence_span_recall_at_k: float
     evidence_question_count: int
+    llm_judged_question_count: int
+    llm_answer_score: float
+    hallucination_rate: float
     total_question_count: int
     avg_chunk_count: float
     avg_chunk_length_chars: float
@@ -65,6 +70,7 @@ class ExperimentResult:
 @dataclass(slots=True)
 class QuestionDiagnostic:
     strategy: str
+    retriever: str
     question_id: str
     question: str
     dataset: str
@@ -78,7 +84,33 @@ class QuestionDiagnostic:
     first_relevant_rank: int | None
     relevant_retrieved: bool
     answer_exact_match: float
+    llm_answer_score: float
+    hallucination_score: float
+    generated_answer: str
     evidence_question: bool
     first_evidence_rank: int | None
     evidence_span_covered: bool
     failure_mode: str
+
+
+@dataclass(slots=True)
+class LLMGrade:
+    answer_score: float
+    hallucination_score: float
+    generated_answer: str
+    rationale: str = ""
+
+
+@dataclass(slots=True)
+class SignificanceComparison:
+    metric: str
+    baseline_strategy: str
+    candidate_strategy: str
+    dataset: str
+    baseline_mean: float
+    candidate_mean: float
+    mean_delta: float
+    p_value: float
+    effect_size: float
+    significant: bool
+    test_name: str
