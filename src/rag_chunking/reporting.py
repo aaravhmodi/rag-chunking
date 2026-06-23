@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import csv
+import os
 import statistics
+import tempfile
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
+
+os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "rag_chunking_mpl"))
 
 import matplotlib
 

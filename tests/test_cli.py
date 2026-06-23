@@ -53,8 +53,8 @@ class CliTests(unittest.TestCase):
             self.assertIn("# RAG Chunking Benchmark Report", report_text)
             self.assertIn("## Slice Analysis", report_text)
             self.assertIn("## Diagnostics", report_text)
-            self.assertTrue((plots_dir / "quality.svg").exists())
-            self.assertTrue((plots_dir / "latency.svg").exists())
+            self.assertTrue((plots_dir / "quality.jpg").exists())
+            self.assertTrue((plots_dir / "latency.jpg").exists())
 
 
 if __name__ == "__main__":
