@@ -51,6 +51,8 @@ class CliTests(unittest.TestCase):
             self.assertTrue(diagnostics_output.exists())
             report_text = report_output.read_text(encoding="utf-8")
             self.assertIn("# RAG Chunking Benchmark Report", report_text)
+            self.assertIn("All tables, figures, and summary statements are computed directly from the experiment runs", report_text)
+            self.assertIn("## Experimental Results", report_text)
             self.assertIn("## Slice Analysis", report_text)
             self.assertIn("## Diagnostics", report_text)
             self.assertTrue((plots_dir / "quality.jpg").exists())

@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This report evaluates how chunking strategy changes retrieval effectiveness and efficiency in a dependency-light RAG benchmark. Strategies are compared on recall, ranking quality, answer coverage, evidence-span coverage, chunk count, chunk length, and retrieval latency.
+This report evaluates how chunking strategy changes retrieval effectiveness and efficiency in a dependency-light RAG benchmark. Strategies are compared on recall, ranking quality, answer coverage, evidence-span coverage, chunk count, chunk length, and retrieval latency. All tables, figures, and summary statements are computed directly from the experiment runs included in this package.
 
 ## Dataset
 
@@ -17,7 +17,7 @@ This report evaluates how chunking strategy changes retrieval effectiveness and 
 
 Each strategy chunks the same document collection, indexes chunk text with a lexical retriever, and retrieves the top-k chunks for each question. Relevance is counted when the correct source document is retrieved and the chunk contains either the gold evidence string or the answer string. For questions with annotated character spans, evidence-span recall@k counts whether any retrieved chunk fully covers the labeled evidence span.
 
-## Results
+## Experimental Results
 
 | Strategy | Recall@k | MRR | nDCG@k | Answer EM | Evidence R@k | Avg chunks/doc | Avg chunk chars | Chunking ms | Retrieval ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

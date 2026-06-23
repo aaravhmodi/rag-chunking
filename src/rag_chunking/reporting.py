@@ -74,7 +74,8 @@ def render_markdown_report(
         (
             "This report evaluates how chunking strategy changes retrieval effectiveness and efficiency in a "
             "dependency-light RAG benchmark. Strategies are compared on recall, ranking quality, answer coverage, "
-            "evidence-span coverage, chunk count, chunk length, retrieval latency, and optional LLM-based answer grading."
+            "evidence-span coverage, chunk count, chunk length, retrieval latency, and optional LLM-based answer grading. "
+            "All tables, figures, and summary statements are computed directly from the experiment runs included in this invocation."
         ),
         "",
         "## Dataset",
@@ -96,7 +97,7 @@ def render_markdown_report(
             "the labeled evidence span. When enabled, an answer judge also scores correctness and unsupported answer rate."
         ),
         "",
-        "## Results",
+        "## Experimental Results",
         "",
         _results_table(results),
         "",

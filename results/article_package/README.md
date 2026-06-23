@@ -1,12 +1,12 @@
 # Article Package
 
-This folder is the cleaned final benchmark package for the scoped four-method QASPER article run.
+This folder is the cleaned final benchmark package for the scoped four-method QASPER article run. Every table, plot, and CSV in this package is derived from the experiment runs in that benchmark.
 
 ## Core Files
 - `report.md`: main narrative report
-- `results.json`: structured aggregate results and slice summaries
-- `results.csv`: compact aggregate table
-- `diagnostics.csv`: per-question diagnostic outcomes
+- `results.json`: structured experimental results and slice summaries
+- `results.csv`: compact experimental results table
+- `diagnostics.csv`: per-question diagnostic outcomes from the experiments
 - `method_ranking.csv`: direct strategy ranking
 - `article_findings.md`: article-ready findings summary
 - `figure_captions.md`: caption starter pack for figures and tables
