@@ -41,9 +41,13 @@ class CliTests(unittest.TestCase):
                 main()
 
             payload = json.loads(json_output.read_text(encoding="utf-8"))
-            self.assertEqual(len(payload), 2)
+            self.assertEqual(len(payload["overall"]), 2)
+            self.assertIn("fixed-128", payload["grouped"])
+            self.assertIn("dataset=sample", payload["grouped"]["fixed-128"])
             self.assertTrue(csv_output.exists())
-            self.assertIn("# RAG Chunking Benchmark Report", report_output.read_text(encoding="utf-8"))
+            report_text = report_output.read_text(encoding="utf-8")
+            self.assertIn("# RAG Chunking Benchmark Report", report_text)
+            self.assertIn("## Slice Analysis", report_text)
             self.assertTrue((plots_dir / "quality.svg").exists())
             self.assertTrue((plots_dir / "latency.svg").exists())
 

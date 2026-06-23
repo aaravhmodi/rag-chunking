@@ -20,6 +20,7 @@ class LoaderTests(unittest.TestCase):
             questions_path = root / "questions.jsonl"
             rows = [
                 {
+                    "question_id": "alpha-q1",
                     "question": "What is alpha?",
                     "answer": "Alpha",
                     "source_doc": "alpha",
@@ -35,6 +36,7 @@ class LoaderTests(unittest.TestCase):
 
         self.assertEqual([document.doc_id for document in documents], ["alpha", "beta"])
         self.assertEqual(len(questions), 1)
+        self.assertEqual(questions[0].question_id, "alpha-q1")
         self.assertEqual(questions[0].metadata["difficulty"], "easy")
 
 

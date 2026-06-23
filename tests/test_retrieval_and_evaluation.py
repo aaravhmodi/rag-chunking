@@ -28,6 +28,7 @@ class RetrievalEvaluationTests(unittest.TestCase):
             ),
         ]
         question = QuestionExample(
+            question_id="q1",
             question="Which group kidnapped James Cross?",
             answer="FLQ",
             source_doc="doc1",

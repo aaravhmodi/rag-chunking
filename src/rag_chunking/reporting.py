@@ -27,10 +27,13 @@ def render_markdown_report(
     documents: list[Document],
     questions: list[QuestionExample],
     results: list[ExperimentResult],
+    grouped_results: dict[str, dict[str, ExperimentResult]] | None = None,
 ) -> str:
     total_doc_tokens = sum(len(tokenize(document.text)) for document in documents)
     avg_doc_tokens = total_doc_tokens / len(documents) if documents else 0.0
     question_types = sorted({question.question_type for question in questions})
+    dataset_counts = _metadata_counts(questions, "dataset")
+    split_counts = _metadata_counts(questions, "split")
     best_recall = max(results, key=lambda result: result.recall_at_k) if results else None
     best_mrr = max(results, key=lambda result: result.mrr) if results else None
     fastest = min(results, key=lambda result: result.retrieval_latency_ms) if results else None
@@ -55,6 +58,8 @@ def render_markdown_report(
         f"- Questions: {len(questions)}",
         f"- Average document length (tokens): {avg_doc_tokens:.1f}",
         f"- Question types: {', '.join(question_types) if question_types else 'unknown'}",
+        f"- Datasets: {_format_count_summary(dataset_counts)}",
+        f"- Splits: {_format_count_summary(split_counts)}",
         "",
         "## Method",
         "",
@@ -85,6 +90,13 @@ def render_markdown_report(
             f"- Strategy spread: chunk count ranges from {min(chunk_counts):.2f} to {max(chunk_counts):.2f}, "
             f"and average chunk length ranges from {min(chunk_lengths):.2f} to {max(chunk_lengths):.2f} characters."
         )
+    if grouped_results:
+        lines.extend(["", "## Slice Analysis", ""])
+        for slice_label in _ordered_slice_labels(grouped_results):
+            lines.append(f"### {slice_label}")
+            lines.append("")
+            lines.append(_results_table([slices[slice_label] for slices in grouped_results.values() if slice_label in slices]))
+            lines.append("")
 
     lines.extend(
         [
@@ -139,12 +151,40 @@ def _results_table(results: list[ExperimentResult]) -> str:
     rows = [
         (
             f"| {result.strategy} | {result.recall_at_k:.3f} | {result.mrr:.3f} | {result.ndcg_at_k:.3f} | "
-            f"{result.answer_exact_match:.3f} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
+            f"{_format_answer_metric(result)} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
             f"{result.chunking_latency_ms:.3f} | {result.retrieval_latency_ms:.3f} |"
         )
         for result in sorted(results, key=lambda item: (item.recall_at_k, item.mrr, -item.retrieval_latency_ms), reverse=True)
     ]
     return "\n".join([header, *rows]) if rows else header
+
+
+def _format_answer_metric(result: ExperimentResult) -> str:
+    if result.answerable_question_count == 0:
+        return "n/a"
+    return f"{result.answer_exact_match:.3f}"
+
+
+def _metadata_counts(questions: list[QuestionExample], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for question in questions:
+        value = question.metadata.get(field)
+        if value:
+            counts[str(value)] = counts.get(str(value), 0) + 1
+    return counts
+
+
+def _format_count_summary(counts: dict[str, int]) -> str:
+    if not counts:
+        return "n/a"
+    return ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+
+
+def _ordered_slice_labels(grouped_results: dict[str, dict[str, ExperimentResult]]) -> list[str]:
+    labels = set()
+    for slices in grouped_results.values():
+        labels.update(label for label in slices if label != "overall")
+    return sorted(labels)
 
 
 def _bar_chart_svg(

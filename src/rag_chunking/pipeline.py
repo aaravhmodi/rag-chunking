@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import statistics
 import time
+from collections import defaultdict
 
 from rag_chunking.chunkers import build_chunks
-from rag_chunking.evaluation import answer_exact_match, ndcg_at_k, recall_at_k, reciprocal_rank
-from rag_chunking.models import Document, ExperimentResult, QuestionExample
+from rag_chunking.evaluation import answer_exact_match, is_answerable, ndcg_at_k, recall_at_k, reciprocal_rank
+from rag_chunking.models import Chunk, Document, ExperimentResult, QuestionExample, RetrievalResult
 from rag_chunking.retrieval import LexicalRetriever
 
 
@@ -15,8 +16,48 @@ def run_experiment(
     strategy: str,
     top_k: int = 5,
 ) -> ExperimentResult:
+    chunks, chunking_latency_ms = chunk_documents(documents, strategy)
+    return evaluate_experiment(chunks, questions, strategy, top_k=top_k, chunking_latency_ms=chunking_latency_ms)
+
+
+def run_grouped_experiments(
+    documents: list[Document],
+    questions: list[QuestionExample],
+    strategy: str,
+    top_k: int = 5,
+    group_fields: tuple[str, ...] = ("dataset", "split"),
+) -> dict[str, ExperimentResult]:
+    chunks, chunking_latency_ms = chunk_documents(documents, strategy)
+    retriever = LexicalRetriever(chunks)
+    retrievals = {question.question_id: retriever.retrieve(question.question, top_k=top_k) for question in questions}
+    chunk_counts_by_doc = defaultdict(int)
+    for chunk in chunks:
+        chunk_counts_by_doc[chunk.doc_id] += 1
+
+    grouped_questions: defaultdict[str, list[QuestionExample]] = defaultdict(list)
+    grouped_questions["overall"].extend(questions)
+    for question in questions:
+        for field in group_fields:
+            value = question.metadata.get(field)
+            if value:
+                grouped_questions[f"{field}={value}"].append(question)
+
+    return {
+        label: summarize_experiment(
+            strategy=strategy,
+            questions=group_questions,
+            retrievals=retrievals,
+            chunk_counts=list(chunk_counts_by_doc.values()),
+            chunk_lengths=[len(chunk.text) for chunk in chunks],
+            chunking_latency_ms=chunking_latency_ms,
+        )
+        for label, group_questions in grouped_questions.items()
+    }
+
+
+def chunk_documents(documents: list[Document], strategy: str) -> tuple[list[Chunk], float]:
     chunking_start = time.perf_counter()
-    chunks = []
+    chunks: list[Chunk] = []
     chunk_counts: list[int] = []
     chunk_lengths: list[int] = []
     for document in documents:
@@ -25,19 +66,53 @@ def run_experiment(
         chunk_counts.append(len(doc_chunks))
         chunk_lengths.extend(len(chunk.text) for chunk in doc_chunks)
     chunking_latency_ms = (time.perf_counter() - chunking_start) * 1000
+    return chunks, chunking_latency_ms
 
+
+def evaluate_experiment(
+    chunks: list[Chunk],
+    questions: list[QuestionExample],
+    strategy: str,
+    top_k: int,
+    chunking_latency_ms: float,
+) -> ExperimentResult:
     retriever = LexicalRetriever(chunks)
+    retrievals = {question.question_id: retriever.retrieve(question.question, top_k=top_k) for question in questions}
+    chunk_counts_by_doc = defaultdict(int)
+    for chunk in chunks:
+        chunk_counts_by_doc[chunk.doc_id] += 1
+    return summarize_experiment(
+        strategy=strategy,
+        questions=questions,
+        retrievals=retrievals,
+        chunk_counts=list(chunk_counts_by_doc.values()),
+        chunk_lengths=[len(chunk.text) for chunk in chunks],
+        chunking_latency_ms=chunking_latency_ms,
+    )
+
+
+def summarize_experiment(
+    strategy: str,
+    questions: list[QuestionExample],
+    retrievals: dict[str, list[RetrievalResult]],
+    chunk_counts: list[int],
+    chunk_lengths: list[int],
+    chunking_latency_ms: float,
+) -> ExperimentResult:
     retrieval_start = time.perf_counter()
     recall_scores = []
     rr_scores = []
     ndcg_scores = []
     answer_scores = []
+    answerable_question_count = 0
     for question in questions:
-        results = retriever.retrieve(question.question, top_k=top_k)
+        results = retrievals[question.question_id]
         recall_scores.append(recall_at_k(results, question))
         rr_scores.append(reciprocal_rank(results, question))
         ndcg_scores.append(ndcg_at_k(results, question))
-        answer_scores.append(answer_exact_match(results, question))
+        if is_answerable(question):
+            answer_scores.append(answer_exact_match(results, question))
+            answerable_question_count += 1
     retrieval_latency_ms = (time.perf_counter() - retrieval_start) * 1000
 
     return ExperimentResult(
@@ -47,6 +122,8 @@ def run_experiment(
         mrr=statistics.fmean(rr_scores) if rr_scores else 0.0,
         ndcg_at_k=statistics.fmean(ndcg_scores) if ndcg_scores else 0.0,
         answer_exact_match=statistics.fmean(answer_scores) if answer_scores else 0.0,
+        answerable_question_count=answerable_question_count,
+        total_question_count=len(questions),
         avg_chunk_count=statistics.fmean(chunk_counts) if chunk_counts else 0.0,
         avg_chunk_length_chars=statistics.fmean(chunk_lengths) if chunk_lengths else 0.0,
         chunking_latency_ms=chunking_latency_ms,
