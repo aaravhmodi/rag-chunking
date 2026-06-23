@@ -2,8 +2,8 @@ import unittest
 
 from tests import _path  # noqa: F401
 
-from rag_chunking.evaluation import answer_exact_match, ndcg_at_k, recall_at_k, reciprocal_rank
-from rag_chunking.models import Chunk, QuestionExample
+from rag_chunking.evaluation import answer_exact_match, evidence_span_recall_at_k, ndcg_at_k, recall_at_k, reciprocal_rank
+from rag_chunking.models import Chunk, QuestionExample, RetrievalResult
 from rag_chunking.retrieval import LexicalRetriever
 
 
@@ -44,6 +44,38 @@ class RetrievalEvaluationTests(unittest.TestCase):
         self.assertEqual(reciprocal_rank(results, question), 1.0)
         self.assertEqual(ndcg_at_k(results, question), 1.0)
         self.assertEqual(answer_exact_match(results, question), 1.0)
+
+    def test_evidence_span_recall_uses_chunk_boundaries(self) -> None:
+        chunks = [
+            Chunk(
+                chunk_id="doc1:paragraph:0",
+                doc_id="doc1",
+                text="Alpha beta gamma delta epsilon zeta",
+                start_char=0,
+                end_char=35,
+                strategy="paragraph",
+            ),
+            Chunk(
+                chunk_id="doc1:paragraph:1",
+                doc_id="doc1",
+                text="eta theta iota kappa lambda",
+                start_char=36,
+                end_char=63,
+                strategy="paragraph",
+            ),
+        ]
+        question = QuestionExample(
+            question_id="q2",
+            question="Where is gamma delta epsilon discussed?",
+            source_doc="doc1",
+            gold_evidence="gamma delta epsilon",
+            evidence_start=11,
+            evidence_end=30,
+        )
+
+        results = [RetrievalResult(chunk=chunks[0], score=1.0), RetrievalResult(chunk=chunks[1], score=0.5)]
+
+        self.assertEqual(evidence_span_recall_at_k(results, question), 1.0)
 
 
 if __name__ == "__main__":

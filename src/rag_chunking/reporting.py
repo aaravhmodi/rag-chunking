@@ -49,7 +49,7 @@ def render_markdown_report(
         (
             "This report evaluates how chunking strategy changes retrieval effectiveness and efficiency in a "
             "dependency-light RAG benchmark. Strategies are compared on recall, ranking quality, answer coverage, "
-            "chunk count, chunk length, and retrieval latency."
+            "evidence-span coverage, chunk count, chunk length, and retrieval latency."
         ),
         "",
         "## Dataset",
@@ -66,7 +66,9 @@ def render_markdown_report(
         (
             "Each strategy chunks the same document collection, indexes chunk text with a lexical retriever, and "
             "retrieves the top-k chunks for each question. Relevance is counted when the correct source document is "
-            "retrieved and the chunk contains either the gold evidence string or the answer string."
+            "retrieved and the chunk contains either the gold evidence string or the answer string. For questions "
+            "with annotated character spans, evidence-span recall@k counts whether any retrieved chunk fully covers "
+            "the labeled evidence span."
         ),
         "",
         "## Results",
@@ -79,8 +81,11 @@ def render_markdown_report(
 
     if best_recall:
         lines.append(f"- Highest recall@k: `{best_recall.strategy}` at {best_recall.recall_at_k:.3f}.")
+    best_evidence = max(results, key=lambda result: result.evidence_span_recall_at_k) if results else None
     if best_mrr:
         lines.append(f"- Best MRR: `{best_mrr.strategy}` at {best_mrr.mrr:.3f}.")
+    if best_evidence and best_evidence.evidence_question_count:
+        lines.append(f"- Highest evidence-span recall@k: `{best_evidence.strategy}` at {best_evidence.evidence_span_recall_at_k:.3f}.")
     if fastest:
         lines.append(f"- Lowest retrieval latency: `{fastest.strategy}` at {fastest.retrieval_latency_ms:.3f} ms.")
     if most_compact:
@@ -145,13 +150,13 @@ def write_svg_plots(results: list[ExperimentResult], output_dir: str | Path) -> 
 
 def _results_table(results: list[ExperimentResult]) -> str:
     header = (
-        "| Strategy | Recall@k | MRR | nDCG@k | Answer EM | Avg chunks/doc | Avg chunk chars | Chunking ms | Retrieval ms |\n"
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        "| Strategy | Recall@k | MRR | nDCG@k | Answer EM | Evidence R@k | Avg chunks/doc | Avg chunk chars | Chunking ms | Retrieval ms |\n"
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     )
     rows = [
         (
             f"| {result.strategy} | {result.recall_at_k:.3f} | {result.mrr:.3f} | {result.ndcg_at_k:.3f} | "
-            f"{_format_answer_metric(result)} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
+            f"{_format_answer_metric(result)} | { _format_evidence_metric(result)} | {result.avg_chunk_count:.2f} | {result.avg_chunk_length_chars:.2f} | "
             f"{result.chunking_latency_ms:.3f} | {result.retrieval_latency_ms:.3f} |"
         )
         for result in sorted(results, key=lambda item: (item.recall_at_k, item.mrr, -item.retrieval_latency_ms), reverse=True)
@@ -163,6 +168,12 @@ def _format_answer_metric(result: ExperimentResult) -> str:
     if result.answerable_question_count == 0:
         return "n/a"
     return f"{result.answer_exact_match:.3f}"
+
+
+def _format_evidence_metric(result: ExperimentResult) -> str:
+    if result.evidence_question_count == 0:
+        return "n/a"
+    return f"{result.evidence_span_recall_at_k:.3f}"
 
 
 def _metadata_counts(questions: list[QuestionExample], field: str) -> dict[str, int]:

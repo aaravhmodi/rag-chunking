@@ -31,6 +31,7 @@ class PipelineTests(unittest.TestCase):
         self.assertGreaterEqual(result.recall_at_k, 0.0)
         self.assertLessEqual(result.recall_at_k, 1.0)
         self.assertEqual(result.answerable_question_count, 1)
+        self.assertEqual(result.evidence_question_count, 0)
         self.assertEqual(result.total_question_count, 1)
         self.assertGreater(result.avg_chunk_count, 0.0)
         self.assertGreater(result.avg_chunk_length_chars, 0.0)

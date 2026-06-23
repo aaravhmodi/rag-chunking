@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--question-dataset", action="append", help="Restrict evaluation to one or more metadata dataset values.")
     parser.add_argument("--max-documents", type=int, help="Optional cap on the number of loaded documents after filtering.")
     parser.add_argument("--max-questions", type=int, help="Optional cap on the number of loaded questions after filtering.")
+    parser.add_argument("--cache-dir", help="Optional directory for persisted chunk caches keyed by strategy and document contents.")
     return parser.parse_args()
 
 
@@ -47,9 +48,16 @@ def main() -> None:
         questions = [question for question in questions if _question_matches_loaded_documents(question, allowed_doc_ids)]
     if args.max_questions is not None:
         questions = questions[: args.max_questions]
-    results = [run_experiment(documents, questions, strategy, top_k=args.top_k) for strategy in args.strategies]
+    results = [run_experiment(documents, questions, strategy, top_k=args.top_k, cache_dir=args.cache_dir) for strategy in args.strategies]
     grouped_results = {
-        strategy: run_grouped_experiments(documents, questions, strategy, top_k=args.top_k, group_fields=tuple(args.group_by))
+        strategy: run_grouped_experiments(
+            documents,
+            questions,
+            strategy,
+            top_k=args.top_k,
+            group_fields=tuple(args.group_by),
+            cache_dir=args.cache_dir,
+        )
         for strategy in args.strategies
     }
     payload = [asdict(result) for result in results]

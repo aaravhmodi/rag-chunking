@@ -38,10 +38,22 @@ The CLI now supports:
 - `--question-split`
 - `--max-documents`
 - `--max-questions`
+- `--cache-dir`
 
 These flags are intended to make exploratory and article-oriented runs reproducible without launching accidental all-corpus experiments.
 
-### Step 4: Preserve mixed benchmark support
+### Step 4: Add chunk caching
+
+Chunking is deterministic for a given:
+
+- strategy
+- ordered document IDs
+- document text content
+
+When `--cache-dir` is set, the pipeline stores chunk outputs on disk keyed by a content fingerprint of the loaded document collection plus the strategy name.
+Repeated runs with the same filtered document set can therefore skip chunk rebuilding entirely.
+
+### Step 5: Preserve mixed benchmark support
 
 The benchmark schema supports both:
 
@@ -83,6 +95,7 @@ rag-benchmark `
   --question-dataset qasper `
   --question-split test `
   --strategies paragraph adaptive `
+  --cache-dir .cache/chunks `
   --top-k 5 `
   --max-documents 250 `
   --max-questions 300 `
@@ -107,7 +120,7 @@ rag-benchmark `
 ## Remaining Limits
 
 - This is still a lightweight in-process sparse retriever rather than a production search engine.
-- Chunking is recomputed per strategy and per run.
+- The first cached run still pays the initial chunking cost.
 - Full mixed-corpus runs may still be slow when document counts and chunk counts are both large.
 
-The next major speed upgrade would be chunk caching across repeated runs.
+The next major speed upgrade would be caching or persisting retrieval indexes in addition to chunks.

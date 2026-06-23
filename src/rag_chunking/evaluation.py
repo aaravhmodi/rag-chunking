@@ -14,6 +14,15 @@ def is_answerable(question: QuestionExample) -> bool:
     return bool(question.answer or question.alternative_answers)
 
 
+def has_evidence_span(question: QuestionExample) -> bool:
+    return (
+        question.evidence_start is not None
+        and question.evidence_end is not None
+        and question.source_doc != ""
+        and question.evidence_end > question.evidence_start
+    )
+
+
 def is_relevant(result: RetrievalResult, question: QuestionExample) -> bool:
     if question.relevant_doc_ids:
         return result.chunk.doc_id in set(question.relevant_doc_ids)
@@ -52,3 +61,14 @@ def answer_exact_match(results: list[RetrievalResult], question: QuestionExample
     combined = " ".join(result.chunk.text for result in results).lower()
     candidates = _normalize_candidates([question.answer, *question.alternative_answers])
     return 1.0 if any(candidate in combined for candidate in candidates) else 0.0
+
+
+def evidence_span_recall_at_k(results: list[RetrievalResult], question: QuestionExample) -> float:
+    if not has_evidence_span(question):
+        return 0.0
+    for result in results:
+        if result.chunk.doc_id != question.source_doc:
+            continue
+        if result.chunk.start_char <= question.evidence_start and result.chunk.end_char >= question.evidence_end:
+            return 1.0
+    return 0.0

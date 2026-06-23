@@ -53,6 +53,8 @@ class ExperimentResult:
     ndcg_at_k: float
     answer_exact_match: float
     answerable_question_count: int
+    evidence_span_recall_at_k: float
+    evidence_question_count: int
     total_question_count: int
     avg_chunk_count: float
     avg_chunk_length_chars: float
