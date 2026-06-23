@@ -8,6 +8,7 @@ from pathlib import Path
 from rag_chunking.loaders import load_documents, load_questions
 from rag_chunking.pipeline import collect_question_diagnostics, run_experiment, run_grouped_experiments, chunk_documents
 from rag_chunking.reporting import render_markdown_report, write_csv_results, write_diagnostics_csv, write_svg_plots
+from rag_chunking.significance import collect_dataset_metric_vectors, compare_strategies_by_dataset
 
 
 def parse_args() -> argparse.Namespace:
@@ -28,6 +29,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-questions", type=int, help="Optional cap on the number of loaded questions after filtering.")
     parser.add_argument("--cache-dir", help="Optional directory for persisted chunk caches keyed by strategy and document contents.")
     parser.add_argument("--diagnostics-output", help="Optional path to write per-question diagnostics as CSV.")
+    parser.add_argument("--retriever-backend", default="lexical", choices=["lexical", "embedding", "hybrid"], help="Retriever backend to use.")
+    parser.add_argument("--embedding-backend", default="hash", help="Embedding backend spec for embedding retrievers or semantic chunking.")
+    parser.add_argument("--llm-judge-backend", help="Optional LLM grading backend. Use `heuristic` or `openai[:model]`.")
+    parser.add_argument("--significance-output", help="Optional path to write cross-dataset significance comparisons as JSON.")
+    parser.add_argument("--significance-baseline", help="Optional baseline strategy for significance testing. Defaults to the first strategy.")
     return parser.parse_args()
 
 
@@ -49,7 +55,19 @@ def main() -> None:
         questions = [question for question in questions if _question_matches_loaded_documents(question, allowed_doc_ids)]
     if args.max_questions is not None:
         questions = questions[: args.max_questions]
-    results = [run_experiment(documents, questions, strategy, top_k=args.top_k, cache_dir=args.cache_dir) for strategy in args.strategies]
+    results = [
+        run_experiment(
+            documents,
+            questions,
+            strategy,
+            top_k=args.top_k,
+            cache_dir=args.cache_dir,
+            retriever_backend=args.retriever_backend,
+            embedding_backend=args.embedding_backend,
+            llm_judge_backend=args.llm_judge_backend,
+        )
+        for strategy in args.strategies
+    ]
     grouped_results = {
         strategy: run_grouped_experiments(
             documents,
@@ -58,14 +76,52 @@ def main() -> None:
             top_k=args.top_k,
             group_fields=tuple(args.group_by),
             cache_dir=args.cache_dir,
+            retriever_backend=args.retriever_backend,
+            embedding_backend=args.embedding_backend,
+            llm_judge_backend=args.llm_judge_backend,
         )
         for strategy in args.strategies
     }
     diagnostics = []
     if args.diagnostics_output or args.report_output:
         for strategy in args.strategies:
-            chunks, _ = chunk_documents(documents, strategy, cache_dir=args.cache_dir)
-            diagnostics.extend(collect_question_diagnostics(chunks, questions, strategy, top_k=args.top_k))
+            chunks, _ = chunk_documents(documents, strategy, cache_dir=args.cache_dir, embedding_backend=args.embedding_backend)
+            diagnostics.extend(
+                collect_question_diagnostics(
+                    chunks,
+                    questions,
+                    strategy,
+                    top_k=args.top_k,
+                    retriever_backend=args.retriever_backend,
+                    embedding_backend=args.embedding_backend,
+                    llm_judge_backend=args.llm_judge_backend,
+                )
+            )
+    significance = []
+    if args.significance_output and diagnostics:
+        diagnostics_by_strategy: dict[str, list[dict[str, object]]] = {}
+        for strategy in args.strategies:
+            diagnostics_by_strategy[strategy] = [
+                {
+                    "dataset": item.dataset or "overall",
+                    "recall_at_k": 1.0 if item.relevant_retrieved else 0.0,
+                    "answer_exact_match": item.answer_exact_match,
+                    "llm_answer_score": item.llm_answer_score,
+                    "hallucination_score": item.hallucination_score,
+                    "evidence_span_recall_at_k": 1.0 if item.evidence_span_covered else 0.0,
+                }
+                for item in diagnostics
+                if item.strategy == strategy
+            ]
+        baseline = args.significance_baseline or args.strategies[0]
+        for metric_name in ("recall_at_k", "answer_exact_match", "llm_answer_score", "hallucination_score", "evidence_span_recall_at_k"):
+            significance.extend(
+                compare_strategies_by_dataset(
+                    metric_name,
+                    collect_dataset_metric_vectors(diagnostics_by_strategy, metric_name),
+                    baseline_strategy=baseline,
+                )
+            )
     payload = [asdict(result) for result in results]
     text = json.dumps(payload, indent=2)
     if args.output:
@@ -79,6 +135,7 @@ def main() -> None:
                         strategy: {label: asdict(result) for label, result in slices.items()}
                         for strategy, slices in grouped_results.items()
                     },
+                    "significance": [asdict(item) for item in significance],
                 },
                 indent=2,
             ),
@@ -88,6 +145,10 @@ def main() -> None:
         write_csv_results(results, args.csv_output)
     if args.diagnostics_output:
         write_diagnostics_csv(diagnostics, args.diagnostics_output)
+    if args.significance_output:
+        significance_path = Path(args.significance_output)
+        significance_path.parent.mkdir(parents=True, exist_ok=True)
+        significance_path.write_text(json.dumps([asdict(item) for item in significance], indent=2), encoding="utf-8")
     if args.report_output:
         report = render_markdown_report(
             title=args.title,
@@ -96,6 +157,7 @@ def main() -> None:
             results=results,
             grouped_results=grouped_results,
             diagnostics=diagnostics,
+            significance=significance,
         )
         report_path = Path(args.report_output)
         report_path.parent.mkdir(parents=True, exist_ok=True)
