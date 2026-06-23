@@ -24,6 +24,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--group-by", nargs="*", default=["dataset", "split"], help="Question metadata fields to slice results by.")
     parser.add_argument("--question-split", action="append", help="Restrict evaluation to one or more metadata split values.")
     parser.add_argument("--question-dataset", action="append", help="Restrict evaluation to one or more metadata dataset values.")
+    parser.add_argument("--max-documents", type=int, help="Optional cap on the number of loaded documents after filtering.")
+    parser.add_argument("--max-questions", type=int, help="Optional cap on the number of loaded questions after filtering.")
     return parser.parse_args()
 
 
@@ -37,6 +39,14 @@ def main() -> None:
         if (not args.question_split or question.metadata.get("split") in args.question_split)
         and (not args.question_dataset or question.metadata.get("dataset") in args.question_dataset)
     ]
+    if args.question_dataset:
+        documents = [document for document in documents if _document_matches_dataset_filter(document.doc_id, set(args.question_dataset))]
+    if args.max_documents is not None:
+        documents = documents[: args.max_documents]
+        allowed_doc_ids = {document.doc_id for document in documents}
+        questions = [question for question in questions if _question_matches_loaded_documents(question, allowed_doc_ids)]
+    if args.max_questions is not None:
+        questions = questions[: args.max_questions]
     results = [run_experiment(documents, questions, strategy, top_k=args.top_k) for strategy in args.strategies]
     grouped_results = {
         strategy: run_grouped_experiments(documents, questions, strategy, top_k=args.top_k, group_fields=tuple(args.group_by))
@@ -80,3 +90,20 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def _document_matches_dataset_filter(doc_id: str, datasets: set[str]) -> bool:
+    if doc_id.startswith("qasper:"):
+        return "qasper" in datasets
+    if doc_id.startswith("beir:"):
+        parts = doc_id.split(":", maxsplit=2)
+        return len(parts) >= 2 and parts[1] in datasets
+    return True
+
+
+def _question_matches_loaded_documents(question, allowed_doc_ids: set[str]) -> bool:
+    if question.relevant_doc_ids:
+        return any(doc_id in allowed_doc_ids for doc_id in question.relevant_doc_ids)
+    if question.source_doc:
+        return question.source_doc in allowed_doc_ids
+    return True

@@ -50,6 +50,7 @@ def run_grouped_experiments(
             chunk_counts=list(chunk_counts_by_doc.values()),
             chunk_lengths=[len(chunk.text) for chunk in chunks],
             chunking_latency_ms=chunking_latency_ms,
+            top_k=top_k,
         )
         for label, group_questions in grouped_questions.items()
     }
@@ -88,6 +89,7 @@ def evaluate_experiment(
         chunk_counts=list(chunk_counts_by_doc.values()),
         chunk_lengths=[len(chunk.text) for chunk in chunks],
         chunking_latency_ms=chunking_latency_ms,
+        top_k=top_k,
     )
 
 
@@ -98,6 +100,7 @@ def summarize_experiment(
     chunk_counts: list[int],
     chunk_lengths: list[int],
     chunking_latency_ms: float,
+    top_k: int,
 ) -> ExperimentResult:
     retrieval_start = time.perf_counter()
     recall_scores = []

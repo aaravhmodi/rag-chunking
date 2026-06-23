@@ -66,6 +66,20 @@ rag-benchmark `
   --top-k 5
 ```
 
+For larger benchmarks, start with a scoped run:
+
+```powershell
+rag-benchmark `
+  --documents data/benchmark/documents `
+  --questions data/benchmark/questions.jsonl `
+  --question-dataset qasper `
+  --question-split test `
+  --strategies paragraph adaptive `
+  --top-k 5 `
+  --max-documents 250 `
+  --max-questions 300
+```
+
 To generate article-style artifacts in one run:
 
 ```powershell
@@ -79,6 +93,18 @@ rag-benchmark `
   --report-output results/report.md `
   --plots-dir results/plots
 ```
+
+## Performance Notes
+
+- The retriever now uses an inverted index and only scores chunks that share tokens with the query.
+- Full benchmark runs can still be expensive on large corpora because chunking long documents produces many chunk candidates.
+- Recommended workflow:
+  1. Start with one dataset and one split.
+  2. Run `paragraph` and `adaptive` first.
+  3. Add `fixed-128` and `sentence` after you have confirmed runtime is acceptable.
+  4. Use `--max-documents` and `--max-questions` for exploratory runs.
+
+Detailed pipeline notes live in [docs/benchmarking.md](docs/benchmarking.md).
 
 ## Current gaps
 
