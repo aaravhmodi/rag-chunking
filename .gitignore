@@ -16,6 +16,8 @@ env/
 # Data - large/generated files
 data/benchmark/
 data/raw/
+.cache/
+results/full/
 
 
 # IDE

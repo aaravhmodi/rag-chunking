@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    _status("loading documents and questions")
     documents = load_documents(args.documents)
     questions = load_questions(args.questions)
     questions = [
@@ -56,10 +57,13 @@ def main() -> None:
         questions = [question for question in questions if _question_matches_loaded_documents(question, allowed_doc_ids)]
     if args.max_questions is not None:
         questions = questions[: args.max_questions]
+    _status(f"loaded {len(documents)} documents and {len(questions)} questions")
     strategy_chunks: dict[str, tuple[list[Chunk], float]] = {}
     for strategy in args.strategies:
+        _status(f"chunking strategy {strategy}")
         strategy_chunks[strategy] = chunk_documents(documents, strategy, cache_dir=args.cache_dir, embedding_backend=args.embedding_backend)
 
+    _status("running overall evaluations")
     results = [
         run_experiment(
             documents,
@@ -75,6 +79,7 @@ def main() -> None:
         )
         for strategy in args.strategies
     ]
+    _status("running grouped evaluations")
     grouped_results = {
         strategy: run_grouped_experiments(
             documents,
@@ -93,6 +98,7 @@ def main() -> None:
     }
     diagnostics = []
     if args.diagnostics_output or args.report_output:
+        _status("collecting diagnostics")
         for strategy in args.strategies:
             chunks, chunking_latency_ms = strategy_chunks[strategy]
             diagnostics.extend(
@@ -109,6 +115,7 @@ def main() -> None:
             )
     significance = []
     if args.significance_output and diagnostics:
+        _status("computing significance tests")
         diagnostics_by_strategy: dict[str, list[dict[str, object]]] = {}
         for strategy in args.strategies:
             diagnostics_by_strategy[strategy] = [
@@ -135,6 +142,7 @@ def main() -> None:
     payload = [asdict(result) for result in results]
     text = json.dumps(payload, indent=2)
     if args.output:
+        _status(f"writing JSON output to {args.output}")
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(
@@ -152,14 +160,18 @@ def main() -> None:
             encoding="utf-8",
         )
     if args.csv_output:
+        _status(f"writing CSV output to {args.csv_output}")
         write_csv_results(results, args.csv_output)
     if args.diagnostics_output:
+        _status(f"writing diagnostics output to {args.diagnostics_output}")
         write_diagnostics_csv(diagnostics, args.diagnostics_output)
     if args.significance_output:
+        _status(f"writing significance output to {args.significance_output}")
         significance_path = Path(args.significance_output)
         significance_path.parent.mkdir(parents=True, exist_ok=True)
         significance_path.write_text(json.dumps([asdict(item) for item in significance], indent=2), encoding="utf-8")
     if args.report_output:
+        _status(f"writing report to {args.report_output}")
         report = render_markdown_report(
             title=args.title,
             documents=documents,
@@ -173,12 +185,10 @@ def main() -> None:
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report, encoding="utf-8")
     if args.plots_dir:
+        _status(f"writing plots to {args.plots_dir}")
         write_svg_plots(results, args.plots_dir, diagnostics=diagnostics, grouped_results=grouped_results)
+    _status("done")
     print(text)
-
-
-if __name__ == "__main__":
-    main()
 
 
 def _document_matches_dataset_filter(doc_id: str, datasets: set[str]) -> bool:
@@ -196,3 +206,11 @@ def _question_matches_loaded_documents(question, allowed_doc_ids: set[str]) -> b
     if question.source_doc:
         return question.source_doc in allowed_doc_ids
     return True
+
+
+def _status(message: str) -> None:
+    print(f"[rag-benchmark] {message}", flush=True)
+
+
+if __name__ == "__main__":
+    main()
